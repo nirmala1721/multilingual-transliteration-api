@@ -6,7 +6,7 @@ from app.config import (
     MAX_PDF_PAGES,
     MAX_TEXT_LENGTH,
 )
-from app.services.ocr_service import reader
+from app.services.ocr_service import get_reader
 
 
 PDF_RENDER_SCALE = 3
@@ -39,7 +39,6 @@ def crop_text_area(image):
     )
 
     if coordinates is None:
-
         return image
 
     x, y, width, height = cv2.boundingRect(
@@ -101,7 +100,6 @@ def render_pdf_page(page):
     )
 
     if image is None:
-
         raise ValueError(
             "Could not render PDF page as image"
         )
@@ -113,7 +111,12 @@ def perform_ocr(image):
     """
     Run EasyOCR on the supplied image and return
     the extracted text.
+
+    The EasyOCR reader is initialized lazily and
+    reused for subsequent OCR requests.
     """
+
+    reader = get_reader()
 
     results = reader.readtext(
         image,
