@@ -1,4 +1,4 @@
-const API_BASE_URL = "/api/v1";
+const API_BASE_URL = "https://multilingual-transliteration-api.onrender.com/api/v1";
 
 // ============================================================
 // RESPONSE HELPER
