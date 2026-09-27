@@ -2,10 +2,11 @@
 
 A full-stack multilingual transliteration application that converts supported Indian-language text into Latin characters while preserving pronunciation.
 
-The application supports direct text input as well as text extracted from documents and images.
-
 > Transliteration changes the script, not the meaning.
-> For example, `నమస్కారం` becomes `namaskaram`; it is not translated to "hello".
+>
+> Example: `నమస్కారం` becomes `namaskaram`; it is not translated to "hello".
+
+The application supports direct text input as well as text extracted from documents and images.
 
 ---
 
@@ -20,10 +21,14 @@ The application supports direct text input as well as text extracted from docume
 - [Frontend](#frontend)
 - [Backend](#backend)
 - [API Reference](#api-reference)
+- [Document APIs](#document-apis)
+- [API Error Handling](#api-error-handling)
+- [Configuration and Limits](#configuration-and-limits)
 - [Document Storage](#document-storage)
 - [Quick Start](#quick-start)
 - [Frontend Setup](#frontend-setup)
-- [Running the Full Application](#running-the-full-application)
+- [Running the Full Application Locally](#running-the-full-application-locally)
+- [Production Deployment](#production-deployment)
 - [Testing](#testing)
 - [Project Layout](#project-layout)
 - [Security and Validation](#security-and-validation)
@@ -34,7 +39,7 @@ The application supports direct text input as well as text extracted from docume
 
 ---
 
-# Overview
+## Overview
 
 The Universal Multilingual Transliteration application provides a web-based interface and REST API for converting Indian-language content from native scripts into Latin characters.
 
@@ -49,19 +54,19 @@ The application supports:
 - DOCX text extraction
 - Image OCR
 - Transliteration provider abstraction
-- Document history
+- User-specific document history
 - Stored document reopening
 - Document deletion
 - Light and dark themes
 - Swagger/OpenAPI API documentation
 
-The application is designed with separate frontend, API, service, detection, extraction, OCR, provider, and storage responsibilities.
+The application is organized into separate frontend, API, service, detection, extraction, OCR, provider, and storage responsibilities.
 
 ---
 
-# Capabilities
+## Capabilities
 
-## Text Transliteration
+### Text Transliteration
 
 Users can enter or paste text directly into the Transliteration Workspace.
 
@@ -79,9 +84,7 @@ namaskaram
 
 The API can automatically detect the language or accept an optional language value.
 
----
-
-## File Transliteration
+### File Transliteration
 
 The application supports:
 
@@ -94,9 +97,7 @@ The application supports:
 
 Uploaded files are processed through the appropriate extraction pipeline before transliteration.
 
----
-
-## Automatic Language Detection
+### Automatic Language Detection
 
 The application can detect supported languages from the input text.
 
@@ -124,21 +125,17 @@ can be detected as:
 telugu
 ```
 
-An optional language can also be supplied when the language is already known.
+An optional language can also be supplied when the language is already known. The application uses language detection together with script-based fallback handling when automatic detection is inconclusive.
 
----
+### OCR
 
-## OCR
+Images are processed using OCR. Scanned PDFs can also use OCR when normal embedded PDF text extraction does not provide usable text.
 
-Images are processed using OCR.
-
-Scanned PDFs can also use OCR when normal embedded PDF text extraction does not provide usable text.
-
----
-
-## Document History
+### Document History
 
 Successfully processed uploaded documents are stored with their metadata and transliteration result.
+
+The current implementation associates uploaded documents with a browser-generated `user_id`. The frontend stores this identifier in browser local storage and sends it with document-related API requests.
 
 Users can:
 
@@ -151,9 +148,9 @@ Users can:
 - View its transliteration
 - Delete documents
 
----
+Document history is filtered by `user_id`, so documents created under one browser user identifier are not returned for a different identifier.
 
-## Theme Support
+### Theme Support
 
 The frontend supports:
 
@@ -164,13 +161,13 @@ The selected theme is stored in browser local storage so that the preference rem
 
 ---
 
-# Application Architecture
+## Application Architecture
 
 The application consists of two primary layers:
 
 ```text
 ┌──────────────────────────────────────────────┐
-│                  React Frontend               │
+│                 React Frontend                │
 │                                                │
 │ Dashboard                                     │
 │ Transliteration Workspace                     │
@@ -183,7 +180,7 @@ The application consists of two primary layers:
                         │ REST API
                         ▼
 ┌──────────────────────────────────────────────┐
-│                Flask Backend                  │
+│                 Flask Backend                 │
 │                                                │
 │ Flask-RESTX API                               │
 │ Request Validation                            │
@@ -194,16 +191,16 @@ The application consists of two primary layers:
 │ Document Storage                              │
 └──────────────────────┬─────────────────────────┘
                         │
-           ┌────────────┴────────────┐
-           ▼                         ▼
-      SQLite Database          File Storage
+               ┌────────┴────────┐
+               ▼                 ▼
+        SQLite Database    File Storage
 ```
 
 ---
 
-# Application Flow
+## Application Flow
 
-## Text Flow
+### Text Flow
 
 ```text
 User enters text
@@ -233,9 +230,7 @@ JSON response
 React displays result
 ```
 
----
-
-## File Flow
+### File Flow
 
 ```text
 User selects file
@@ -287,7 +282,7 @@ React displays result
 
 ---
 
-# Document Lifecycle
+## Document Lifecycle
 
 Uploaded documents follow this lifecycle:
 
@@ -310,13 +305,12 @@ Transliterate
 Store document
    │
    ├── File
-   └── Metadata
+   └── Metadata + user_id
    │
    ▼
 History
    │
    ├── Open
-   │
    └── Delete
 ```
 
@@ -337,9 +331,9 @@ Delete SQLite record
 
 ---
 
-# Supported Languages and Files
+## Supported Languages and Files
 
-## Transliteration
+### Transliteration
 
 | Language | Handling                               |
 | -------- | --------------------------------------- |
@@ -355,42 +349,30 @@ Delete SQLite record
 | Assamese | Aksharamukha/custom detection handling |
 | English  | Returned unchanged                     |
 
-Language detection is configured for supported Indian languages and English.
+Language detection is configured for supported Indian languages and English. The application also contains script-based fallback handling when automatic detection is inconclusive.
 
-The application also contains script-based fallback handling when automatic detection is inconclusive.
+### File Inputs
 
----
-
-## File Inputs
-
-| File type     | Extensions              | Processing                                             |
+| File type     | Extensions               | Processing                                              |
 | ------------- | ------------------------ | -------------------------------------------------------- |
-| Plain text    | `.txt`                  | Direct extraction                                       |
-| PDF           | `.pdf`                  | Embedded-text extraction with scanned-PDF OCR fallback  |
-| Word document | `.docx`                 | Paragraph and table-cell extraction                     |
-| Image         | `.png`, `.jpg`, `.jpeg` | OCR                                                      |
+| Plain text    | `.txt`                   | Direct extraction                                         |
+| PDF           | `.pdf`                   | Embedded-text extraction with scanned-PDF OCR fallback   |
+| Word document | `.docx`                  | Paragraph and table-cell extraction                       |
+| Image         | `.png`, `.jpg`, `.jpeg`  | OCR                                                        |
 
 `.doc` files are not currently supported.
 
 ---
 
-# Frontend
+## Frontend
 
 The frontend is implemented using React.
 
-## Frontend Pages
+### Frontend Pages
 
-### Dashboard
+**Dashboard** — Provides the main application landing/workspace view.
 
-Provides the main application landing/workspace view.
-
----
-
-### Transliteration Workspace
-
-The main transliteration interface.
-
-It supports:
+**Transliteration Workspace** — The main transliteration interface. It supports:
 
 - Text input
 - Language selection
@@ -408,21 +390,9 @@ It supports:
 - Processing state
 - Error display
 
-The frontend supports a maximum text length of:
+The frontend supports a maximum text length of `100,000` characters.
 
-```text
-100,000 characters
-```
-
-The file processing UI also has a client-side processing timeout.
-
----
-
-### History
-
-The History page displays previously stored documents.
-
-Features include:
+**History** — Displays previously stored documents belonging to the current browser user identifier. Features include:
 
 - Document listing
 - Search
@@ -437,34 +407,26 @@ Features include:
 - Empty state
 - Error state
 
-Opening a document navigates to the Transliteration Workspace with its document ID.
-
-Example:
+Opening a document navigates to the Transliteration Workspace with its document ID:
 
 ```text
 /transliterate?documentId=<document_id>
 ```
 
----
+**Settings** — Provides application settings and configuration-related frontend controls.
 
-### Settings
-
-The Settings page provides application settings and configuration-related frontend controls.
-
----
-
-## Frontend Routing
+### Frontend Routing
 
 The React application uses `react-router-dom`.
 
 Current routes:
 
 | Route             | Page                       |
-| ----------------- | --------------------------- |
-| `/`               | Dashboard                   |
-| `/transliterate`  | Transliteration Workspace   |
-| `/history`        | History                     |
-| `/settings`       | Settings                    |
+| ----------------- | -------------------------- |
+| `/`               | Dashboard                  |
+| `/transliterate`  | Transliteration Workspace  |
+| `/history`        | History                    |
+| `/settings`       | Settings                   |
 
 Saved documents can be opened through:
 
@@ -472,23 +434,23 @@ Saved documents can be opened through:
 /transliterate?documentId=<document_id>
 ```
 
----
+#### Vercel SPA Routing
 
-## Frontend API Integration
+The frontend contains `frontend/vercel.json` with a rewrite for React client-side routes. The configuration keeps the `/api/*` rewrite behavior and rewrites other frontend routes to `index.html`, allowing routes such as `/history` and `/settings` to work correctly when the browser is refreshed or a route is opened directly.
 
-The frontend communicates with the backend through a centralized API service located at:
+### Frontend API Integration
 
-```text
-frontend/src/services/api.js
-```
+The frontend communicates with the backend through `frontend/src/services/api.js`.
 
-Base API path:
+The production API base URL is:
 
 ```text
-/api/v1
+https://multilingual-transliteration-api.onrender.com/api/v1
 ```
 
-The frontend API service currently provides:
+The local development backend URL can be used by commenting/uncommenting the corresponding configuration in `api.js`.
+
+The frontend API service provides functions including:
 
 ```javascript
 transliterateText();
@@ -507,35 +469,35 @@ The service also handles:
 - Missing document IDs
 - HTTP failures
 
+### Frontend User ID
+
+The frontend generates a browser-specific identifier when one does not already exist: `transliteration_user_id`.
+
+The identifier is stored in browser `localStorage`. The same identifier is sent with document upload and document-history requests, for example:
+
+```text
+POST /api/v1/transliterate/file
+```
+
+with:
+
+```text
+user_id=<current-browser-user-id>
+```
+
+and:
+
+```text
+GET /api/v1/documents?user_id=<current-browser-user-id>
+```
+
+This allows the backend to return document history for the current browser user rather than returning all documents.
+
+A private/incognito browser session has separate browser storage, so it receives a different user identifier and does not automatically see history created under another browser session.
+
 ---
 
-## Frontend Document Loading
-
-When a document is opened from History, the application navigates to:
-
-```text
-/transliterate?documentId=<document_id>
-```
-
-The Transliteration Workspace reads the document ID and requests:
-
-```text
-GET /api/v1/documents/<document_id>
-```
-
-The saved document information is then restored into the workspace.
-
-For stored files, the frontend uses:
-
-```text
-GET /api/v1/documents/<document_id>/file
-```
-
-to display the physical document when supported.
-
----
-
-# Backend
+## Backend
 
 The backend is implemented using:
 
@@ -561,46 +523,41 @@ Configuration
 
 ---
 
-# API Reference
+## API Reference
 
-Base URL:
+### Base URL
+
+Local:
 
 ```text
-/api/v1
+http://127.0.0.1:5000/api/v1
 ```
 
-## Endpoints
+Production:
+
+```text
+https://multilingual-transliteration-api.onrender.com/api/v1
+```
+
+### Endpoints
 
 | Method   | Endpoint                                | Description                             |
 | -------- | ---------------------------------------- | ---------------------------------------- |
-| `GET`    | `/api/v1/health`                        | Service health check                    |
-| `POST`   | `/api/v1/transliterate/text`            | Transliterate text                      |
-| `POST`   | `/api/v1/transliterate/file`            | Process and transliterate uploaded file |
-| `GET`    | `/api/v1/documents`                     | Get stored documents                    |
-| `GET`    | `/api/v1/documents/<document_id>`       | Get one document                        |
-| `GET`    | `/api/v1/documents/<document_id>/file`  | Retrieve stored physical file           |
-| `DELETE` | `/api/v1/documents/<document_id>`       | Delete document                         |
+| `GET`    | `/api/v1/health`                         | Service health check                     |
+| `POST`   | `/api/v1/transliterate/text`             | Transliterate text                       |
+| `POST`   | `/api/v1/transliterate/file`             | Process and transliterate uploaded file  |
+| `GET`    | `/api/v1/documents`                      | Get documents for a user                 |
+| `GET`    | `/api/v1/documents/<document_id>`        | Get one document                         |
+| `GET`    | `/api/v1/documents/<document_id>/file`   | Retrieve stored physical file            |
+| `DELETE` | `/api/v1/documents/<document_id>`        | Delete document                          |
 
----
-
-## Health Check
+### Health Check
 
 ```powershell
 curl http://127.0.0.1:5000/api/v1/health
 ```
 
-Example response:
-
-```json
-{
-  "success": true,
-  "message": "API is healthy"
-}
-```
-
----
-
-## Transliterate Text
+### Transliterate Text
 
 ```powershell
 curl -X POST http://127.0.0.1:5000/api/v1/transliterate/text `
@@ -617,7 +574,7 @@ Optional language:
 }
 ```
 
-Successful response:
+Example response:
 
 ```json
 {
@@ -633,18 +590,19 @@ Successful response:
 }
 ```
 
----
+### Transliterate File
 
-## Transliterate File
+The file endpoint accepts a multipart upload.
 
-Send a `multipart/form-data` request with a `file` field:
+Example:
 
 ```powershell
 curl -X POST http://127.0.0.1:5000/api/v1/transliterate/file `
-  -F "file=@sample_files/telugu_example.docx"
+  -F "file=@sample_files/telugu_example.docx" `
+  -F "user_id=<user-id>"
 ```
 
-The response includes:
+The response includes information such as:
 
 - Document ID
 - Source filename
@@ -657,37 +615,19 @@ The response includes:
 - Status
 - Creation timestamp
 
-Example:
-
-```json
-{
-  "success": true,
-  "data": {
-    "document_id": "document-uuid",
-    "filename": "telugu_example.docx",
-    "original_text": "నమస్కారం",
-    "language": "telugu",
-    "transliterated_text": "namaskaram",
-    "provider": "AksharamukhaProvider",
-    "provider_type": "local",
-    "confidence": null,
-    "status": "Completed",
-    "created_at": "2026-01-01T00:00:00+00:00"
-  }
-}
-```
-
 ---
 
 ## Document APIs
 
-### Get all documents
+### Get All Documents
 
 ```text
-GET /api/v1/documents
+GET /api/v1/documents?user_id=<user_id>
 ```
 
-Example response structure:
+The `user_id` query parameter is required.
+
+Example:
 
 ```json
 {
@@ -699,7 +639,18 @@ Example response structure:
 }
 ```
 
-### Get one document
+The backend queries documents using the supplied user identifier:
+
+```sql
+SELECT ...
+FROM documents
+WHERE user_id = ?
+ORDER BY created_at DESC
+```
+
+This prevents the History page from returning documents belonging to another browser user identifier.
+
+### Get One Document
 
 ```text
 GET /api/v1/documents/<document_id>
@@ -707,15 +658,15 @@ GET /api/v1/documents/<document_id>
 
 Used by the frontend when opening a saved document from History.
 
-### Get stored document file
+### Get Stored Document File
 
 ```text
 GET /api/v1/documents/<document_id>/file
 ```
 
-Returns the actual stored file. Used by the frontend to display stored PDF and image files.
+Returns the actual stored file.
 
-### Delete document
+### Delete Document
 
 ```text
 DELETE /api/v1/documents/<document_id>
@@ -756,57 +707,36 @@ Common errors include:
 - PDF extraction failure
 - Unknown language
 - Language mismatch
+- Missing user ID
 - Document not found
 - Stored file not found
 - Document storage failure
 
 ---
 
-# Configuration and Limits
+## Configuration and Limits
 
-Application settings are defined in:
+Application settings are defined in `app/config.py`.
 
-```text
-app/config.py
-```
-
-Current limits:
+Current limits include:
 
 | Setting              | Value                                             |
 | --------------------- | -------------------------------------------------- |
-| Maximum upload size   | 10 MB                                              |
-| Maximum text length   | 100,000 characters                                 |
+| Maximum upload size   | 10 MB                                             |
+| Maximum text length   | 100,000 characters                                |
 | Accepted extensions   | `.txt`, `.pdf`, `.docx`, `.png`, `.jpg`, `.jpeg`  |
 
-The frontend also limits direct text input to:
+The frontend also limits direct text input to `100,000` characters.
 
-```text
-100,000 characters
-```
-
-The frontend file-processing workflow has a client-side timeout of:
-
-```text
-3 minutes
-```
-
-File processing additionally validates actual file content rather than trusting the filename extension alone.
+File processing also has a client-side processing timeout, and additionally validates actual file content rather than trusting the filename extension alone.
 
 ---
 
-# Document Storage
+## Document Storage
 
-During development, uploaded documents are stored under:
+During development, uploaded documents are stored under `storage/documents/`.
 
-```text
-storage/documents/
-```
-
-Document metadata and transliteration results are stored in:
-
-```text
-storage/documents.db
-```
+Document metadata and transliteration results are stored in `storage/documents.db`.
 
 The database contains information including:
 
@@ -816,6 +746,7 @@ filename
 stored_filename
 file_type
 file_path
+user_id
 language
 status
 original_text
@@ -826,13 +757,13 @@ confidence
 created_at
 ```
 
-Stored filenames use generated UUIDs rather than the user's original filename, e.g. `<uuid>.pdf`. The original filename is retained as metadata for display in the application.
+Stored filenames use generated UUIDs rather than the user's original filename. The original filename is retained as metadata for display in the application.
 
 ---
 
-# Quick Start
+## Quick Start
 
-## Backend Prerequisites
+### Backend Prerequisites
 
 - Python 3.10 or later
 - pip
@@ -870,61 +801,108 @@ http://127.0.0.1:5000/
 
 ---
 
-# Frontend Setup
+## Frontend Setup
 
 The frontend is a React application.
 
-From the frontend directory, install the dependencies:
+From the frontend directory:
 
 ```powershell
+cd frontend
 npm install
 ```
 
-Start the frontend using the project's configured development command:
+Start the frontend:
 
 ```powershell
 npm run dev
 ```
 
-The exact development port depends on the frontend configuration.
-
-The frontend communicates with the backend through:
+For local development, configure `frontend/src/services/api.js` to use:
 
 ```text
-/api/v1
+http://127.0.0.1:5000/api/v1
+```
+
+For production, it uses:
+
+```text
+https://multilingual-transliteration-api.onrender.com/api/v1
 ```
 
 ---
 
-# Running the Full Application
+## Running the Full Application Locally
 
 The application consists of two development processes.
 
-## Backend
+**Backend:**
 
-```text
-Flask
-   ↓
-127.0.0.1:5000
+```powershell
+python run.py
 ```
 
-## Frontend
+The Flask backend runs at `127.0.0.1:5000`.
 
-```text
-React
-   ↓
-Development frontend server
+**Frontend:**
+
+From the `frontend` directory:
+
+```powershell
+npm run dev
 ```
 
-The frontend sends API requests to:
-
-```text
-/api/v1
-```
+Both processes are required when testing the complete application locally. The frontend sends API requests to the configured backend URL.
 
 ---
 
-# Testing
+## Production Deployment
+
+The current deployment uses separate frontend and backend hosting.
+
+### Backend
+
+The Flask backend is deployed on Render.
+
+Production API:
+
+```text
+https://multilingual-transliteration-api.onrender.com
+```
+
+API base path:
+
+```text
+https://multilingual-transliteration-api.onrender.com/api/v1
+```
+
+### Frontend
+
+The React frontend is deployed on Vercel. The frontend production build communicates with the Render backend through the production API URL configured in `frontend/src/services/api.js`.
+
+### Deployment Flow
+
+```text
+Developer changes
+       │
+       ▼
+Git commit
+       │
+       ▼
+GitHub feature/frontend
+       │
+       ├──────────────► Render
+       │                 Flask backend
+       │
+       └──────────────► Vercel
+                         React frontend
+```
+
+Frontend routing is configured in `frontend/vercel.json`. The Vercel configuration preserves the `/api/*` rewrite and provides an SPA fallback to `index.html` for React routes.
+
+---
+
+## Testing
 
 The backend has a pytest test suite.
 
@@ -934,69 +912,49 @@ Run:
 pytest -q
 ```
 
-The test suite covers areas including:
+Python syntax checks:
 
-- API validation
-- Text transliteration
-- Language detection
-- Language mismatch handling
-- File processing
-- PDF extraction
-- DOCX extraction
-- OCR paths
-- Input limits
+```powershell
+python -m py_compile app/services/document_storage_service.py
+python -m py_compile app/services/transliteration_service.py
+python -m py_compile app/api/documents.py
+python -m py_compile app/api/transliteration.py
+```
 
-In addition to automated tests, the application has been manually verified through the frontend for:
+Validate the Vercel configuration:
+
+```powershell
+python -m json.tool frontend/vercel.json
+```
+
+Git whitespace validation:
+
+```powershell
+git diff --check
+```
+
+Manual testing includes:
 
 - Text transliteration
 - Hindi language detection
 - Telugu language detection
 - TXT upload
+- DOCX upload
+- Image upload
 - Document storage
-- History
+- User-specific History
 - Opening stored documents
 - Document deletion
+- Private/incognito browser history isolation
+- Production frontend/backend communication
+- Direct frontend route refresh handling
 
 ---
 
-## Frontend End-to-End Flow
-
-The main frontend workflow is:
+## Project Layout
 
 ```text
-Dashboard
-    │
-    ▼
-Transliteration
-    │
-    ├── Enter text
-    │      ↓
-    │   Transliterate
-    │
-    └── Upload file
-           ↓
-       Process file
-           ↓
-       Display result
-           ↓
-       Store document
-           ↓
-         History
-           │
-           ├── Search
-           ├── Filter
-           ├── Open
-           └── Delete
-```
-
----
-
-# Project Layout
-
-The project contains separate backend and frontend sections.
-
-```text
-multilingual-transliteration/
+multilingual-transliteration-api/
 │
 ├── app/
 │   ├── api/
@@ -1026,29 +984,18 @@ multilingual-transliteration/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   └── AppLayout.jsx
-│   │   │   │
-│   │   │   └── transliteration/
-│   │   │       └── TransliterationWorkspace.jsx
-│   │   │
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── Transliterate.jsx
-│   │   │   ├── History.jsx
-│   │   │   └── Settings.jsx
-│   │   │
 │   │   ├── services/
 │   │   │   └── api.js
-│   │   │
 │   │   └── App.jsx
 │   │
-│   └── package.json
+│   ├── public/
+│   ├── package.json
+│   ├── vercel.json
+│   └── vite.config.js
 │
 ├── sample_files/
-│
 ├── tests/
-│
 ├── storage/
 │   ├── documents/
 │   └── documents.db
@@ -1058,25 +1005,17 @@ multilingual-transliteration/
 └── README.md
 ```
 
-> The exact frontend directory and build configuration should match the repository's current project structure.
-
 ---
 
-# Security and Validation
+## Security and Validation
 
 The application performs validation at multiple stages.
 
-## Filename validation
+**Filename Validation** — Uploaded filenames are validated before processing.
 
-Uploaded filenames are validated before processing.
+**Extension Validation** — Only configured file extensions are accepted.
 
-## Extension validation
-
-Only configured file extensions are accepted.
-
-## Content validation
-
-The application validates actual file content rather than relying only on the filename extension:
+**Content Validation** — The application validates actual file content rather than relying only on the filename extension:
 
 ```text
 PDF   → PDF signature validation
@@ -1084,48 +1023,33 @@ DOCX  → ZIP/package validation
 Image → Image content validation
 ```
 
-## File size validation
+**File Size Validation** — Uploads exceeding the configured maximum size are rejected.
 
-Uploads exceeding the configured maximum size are rejected.
+**Text Length Validation** — Extracted text exceeding the configured maximum length is rejected.
 
-## Text length validation
-
-Extracted text exceeding the configured maximum length is rejected.
-
-## Rate limiting
-
-The API applies rate limits to transliteration endpoints.
-
-Current limits:
-
-```text
-Text transliteration
-60 requests per minute
-
-File transliteration
-10 requests per minute
-```
+**Rate Limiting** — The API applies rate limits to transliteration endpoints according to the backend configuration.
 
 ---
 
-# Known Limitations
+## Known Limitations
 
 - Transliteration quality depends on the input and underlying provider.
 - OCR quality depends on image/document quality.
-- OCR is currently configured primarily for Telugu and English.
 - Short or mixed-script input can make language detection ambiguous.
 - Devanagari is shared by multiple languages, so a language override may be useful for short text.
 - `.doc` files are not supported.
 - Large documents can require significant processing time.
-- The frontend currently uses a client-side processing timeout for file processing.
-- SQLite and local filesystem storage are intended for the current development setup rather than a distributed production storage architecture.
-- Production deployment configuration is not yet included.
+- The frontend uses a client-side processing timeout for file processing.
+- SQLite and local filesystem storage are currently used for document storage.
+- Browser-generated user IDs are not a substitute for full account authentication and authorization.
+- Current document-history isolation is based on the browser's stored `user_id`.
+- Production deployment uses separate Render and Vercel services.
 
 ---
 
-# Future Improvements
+## Future Improvements
 
-- Production database support
+- Production-grade database support
 - Cloud object storage for uploaded documents
 - Background document processing
 - Job/status tracking for large files
@@ -1133,18 +1057,17 @@ File transliteration
 - Additional Indian languages
 - Improved mixed-language detection
 - More transliteration providers
-- User authentication and authorization
-- User-specific document history
-- Production deployment configuration
+- Full user authentication and authorization
 - Containerization
 - CI/CD pipeline
 - Frontend automated testing
 - Backend API integration testing
 - Monitoring and structured logging
+- Improved production persistence and scaling
 
 ---
 
-# Contributing
+## Contributing
 
 1. Create a focused branch.
 2. Keep API, service, detector, provider, storage, and frontend responsibilities separated.
@@ -1157,9 +1080,14 @@ pytest -q
 
 For frontend changes, also run the frontend's configured lint/build/test commands before submitting changes.
 
+Before committing configuration changes, validate relevant files, for example:
+
+```powershell
+python -m json.tool frontend/vercel.json
+```
+
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the
-[LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

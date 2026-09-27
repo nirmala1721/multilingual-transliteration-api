@@ -107,6 +107,7 @@ class DocumentStorageService:
                 """
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     filename TEXT NOT NULL,
                     stored_filename TEXT NOT NULL,
                     file_type TEXT NOT NULL,
@@ -135,6 +136,7 @@ class DocumentStorageService:
     def save_document(
         self,
         file,
+        user_id,
         file_type,
         language,
         original_text,
@@ -160,7 +162,10 @@ class DocumentStorageService:
             raise ValueError(
                 "File name is required"
             )
-
+        if not user_id:
+            raise ValueError(
+                "User ID is required"
+            )
         document_id = str(
             uuid.uuid4()
         )
@@ -216,6 +221,7 @@ class DocumentStorageService:
                 """
                 INSERT INTO documents (
                     id,
+                    user_id,
                     filename,
                     stored_filename,
                     file_type,
@@ -229,10 +235,11 @@ class DocumentStorageService:
                     confidence,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     document_id,
+                    user_id,
                     original_filename,
                     stored_filename,
                     file_type,
@@ -323,7 +330,11 @@ class DocumentStorageService:
     # GET ALL DOCUMENTS
     # ========================================================
 
-    def get_all_documents(self):
+    # ========================================================
+# GET ALL DOCUMENTS
+# ========================================================
+
+    def get_all_documents(self, user_id):
         connection = self._get_connection()
 
         try:
@@ -342,8 +353,10 @@ class DocumentStorageService:
                     confidence,
                     created_at
                 FROM documents
+                WHERE user_id = ?
                 ORDER BY created_at DESC
-                """
+                """,
+                (user_id,),
             ).fetchall()
 
             return [

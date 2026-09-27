@@ -1,4 +1,19 @@
 const API_BASE_URL = "https://multilingual-transliteration-api.onrender.com/api/v1";
+// const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+
+
+const USER_ID_KEY = "transliteration_user_id";
+
+function getUserId() {
+  let userId = localStorage.getItem(USER_ID_KEY);
+
+  if (!userId) {
+    userId = crypto.randomUUID();
+    localStorage.setItem(USER_ID_KEY, userId);
+  }
+
+  return userId;
+}
 
 // ============================================================
 // RESPONSE HELPER
@@ -115,6 +130,7 @@ export async function transliterateFile(
   const formData = new FormData();
 
   formData.append("file", file);
+  formData.append("user_id", getUserId());
 
   if (language && language !== "auto") {
     formData.append("language", language);
@@ -157,7 +173,7 @@ export async function getDocuments() {
 
   try {
     response = await fetch(
-      `${API_BASE_URL}/documents`
+      `${API_BASE_URL}/documents?user_id=${getUserId()}`
     );
   } catch (error) {
     throw new Error(

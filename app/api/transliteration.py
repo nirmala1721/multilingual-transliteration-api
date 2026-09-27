@@ -237,6 +237,7 @@ class FileTransliteration(Resource):
             )
 
         file = request.files["file"]
+        user_id = request.form.get("user_id")
 
         if not file.filename:
 
@@ -389,6 +390,7 @@ class FileTransliteration(Resource):
 
             document = storage_service.save_document(
                 file=file,
+                user_id=user_id,
                 file_type=file_type,
                 language=result.language,
                 original_text=text,
