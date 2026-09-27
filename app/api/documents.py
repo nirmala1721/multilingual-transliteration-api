@@ -1,6 +1,5 @@
 import os
-
-from flask import send_file
+from flask import request, send_file
 from flask_restx import Namespace, Resource
 
 from app.api.response import error_response, success_response
@@ -28,17 +27,23 @@ class DocumentList(Resource):
     )
     def get(self):
         """
-        Return all stored documents.
+        Return documents belonging only to the current user.
         """
 
         try:
+            user_id = request.args.get("user_id")
+
+            if not user_id:
+                return error_response(
+                    "User ID is required",
+                    400,
+                )
 
             storage_service = DocumentStorageService()
 
             documents = (
-                storage_service.get_all_documents()
+                storage_service.get_all_documents(user_id)
             )
-
             return success_response(
                 data={
                     "documents": documents,
@@ -53,7 +58,6 @@ class DocumentList(Resource):
                 f"Failed to retrieve documents: {str(error)}",
                 500,
             )
-
 
 # ============================================================
 # SINGLE DOCUMENT
