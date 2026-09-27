@@ -1,5 +1,5 @@
-// const API_BASE_URL = "https://multilingual-transliteration-api.onrender.com/api/v1";
-const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+const API_BASE_URL = "https://multilingual-transliteration-api.onrender.com/api/v1";
+// const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
 
 
 const USER_ID_KEY = "transliteration_user_id";
