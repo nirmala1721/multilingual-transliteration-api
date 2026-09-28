@@ -12,3 +12,4 @@ class TransliterationResult:
     provider: str
     provider_type: str
     confidence: float | None = None
+    languages: list[str] | None = None

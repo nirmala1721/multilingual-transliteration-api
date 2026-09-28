@@ -3,6 +3,7 @@ import re
 
 MULTIPLE_SPACES_PATTERN = r"[ \t]+"
 MULTIPLE_BLANK_LINES_PATTERN = r"\n{3,}"
+BOM_CHARACTER = "\ufeff"
 
 
 def normalize_text(text):
@@ -13,6 +14,7 @@ def normalize_text(text):
     Normalization:
     - Handles None safely.
     - Ensures the input is a string.
+    - Removes UTF-8 BOM characters.
     - Removes leading and trailing whitespace.
     - Converts multiple spaces/tabs into one space.
     - Reduces 3 or more consecutive blank lines to 2.
@@ -29,6 +31,12 @@ def normalize_text(text):
 
     if not isinstance(text, str):
         text = str(text)
+
+    # Remove UTF-8 BOM if present.
+    text = text.replace(
+        BOM_CHARACTER,
+        "",
+    )
 
     text = text.strip()
 

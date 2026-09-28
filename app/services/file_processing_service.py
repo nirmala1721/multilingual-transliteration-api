@@ -185,6 +185,11 @@ def validate_docx_content(file):
 def extract_text_from_txt(file):
     """
     Extract UTF-8 text from a TXT file.
+
+    UTF-8-SIG is intentionally used so that a UTF-8 BOM
+    is automatically removed when present.
+
+    Normal UTF-8 files are also decoded correctly.
     """
 
     file.seek(0)
@@ -192,7 +197,7 @@ def extract_text_from_txt(file):
     content = file.read()
 
     try:
-        text = content.decode("utf-8")
+        text = content.decode("utf-8-sig")
 
     except UnicodeDecodeError as error:
         raise ValueError(
@@ -216,11 +221,11 @@ def extract_text_from_pdf_file(file):
     Flow:
 
         PDF validation
-            ↓
+            |
         Page count validation
-            ↓
+            |
         Normal PDF text extraction
-            ↓
+            |
         Scanned PDF OCR fallback
     """
 
@@ -362,17 +367,17 @@ def extract_text_from_file(file):
     Flow:
 
         filename validation
-            ↓
+            |
         extension validation
-            ↓
+            |
         file-specific validation
-            ↓
+            |
         PDF page-count validation
-            ↓
+            |
         file-specific extraction
-            ↓
+            |
         common text validation
-            ↓
+            |
         extracted text
     """
 

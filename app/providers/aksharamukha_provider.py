@@ -15,6 +15,7 @@ class AksharamukhaProvider(TransliterationProvider):
         "tamil": "Tamil",
         "bengali": "Bengali",
         "kannada": "Kannada",
+        "malayalam": "Malayalam",
         "gujarati": "Gujarati",
         "odia": "Oriya",
         "punjabi": "Gurmukhi",

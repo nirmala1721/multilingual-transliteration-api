@@ -1,5 +1,3 @@
-import re
-
 from app.providers.selector import ProviderSelector
 from app.providers.result import TransliterationResult
 from app.detectors.detector_service import (
@@ -321,6 +319,7 @@ def _transliterate_mixed_text(text):
         provider=provider,
         provider_type=provider_type,
         confidence=confidence,
+        languages=languages_used,
     )
 
 
@@ -340,10 +339,16 @@ def transliterate_text(text, language=None):
             "Input text is required"
         )
 
-    # Normalize input before processing.
+    # --------------------------------------------------------
+    # NORMALIZE INPUT
+    # --------------------------------------------------------
+
     text = normalize_text(text)
 
-    # Normalize requested language.
+    # --------------------------------------------------------
+    # NORMALIZE REQUESTED LANGUAGE
+    # --------------------------------------------------------
+
     requested_language = (
         language.lower().strip()
         if isinstance(language, str)
@@ -403,10 +408,21 @@ def transliterate_text(text, language=None):
                 f"{requested_language}"
             )
 
-        return provider.transliterate(
+        result = provider.transliterate(
             text,
             requested_language,
         )
+
+        # ----------------------------------------------------
+        # Ensure languages metadata is available
+        # ----------------------------------------------------
+
+        if result.languages is None:
+            result.languages = [
+                requested_language
+            ]
+
+        return result
 
     # ========================================================
     # AUTOMATIC / MIXED LANGUAGE
@@ -455,7 +471,10 @@ def transliterate_text(text, language=None):
             detected_script
         )
 
-    # Pure Latin text.
+    # --------------------------------------------------------
+    # PURE LATIN TEXT
+    # --------------------------------------------------------
+
     if final_language is None and detected_script == "latin":
 
         return TransliterationResult(
@@ -464,6 +483,7 @@ def transliterate_text(text, language=None):
             provider="passthrough",
             provider_type="passthrough",
             confidence=None,
+            languages=["english"],
         )
 
     if final_language is None:
@@ -481,7 +501,18 @@ def transliterate_text(text, language=None):
             f"{final_language}"
         )
 
-    return provider.transliterate(
+    result = provider.transliterate(
         text,
         final_language,
     )
+
+    # --------------------------------------------------------
+    # Ensure languages metadata is available
+    # --------------------------------------------------------
+
+    if result.languages is None:
+        result.languages = [
+            final_language
+        ]
+
+    return result

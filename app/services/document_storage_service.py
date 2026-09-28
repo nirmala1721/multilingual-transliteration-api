@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import uuid
@@ -113,6 +114,7 @@ class DocumentStorageService:
                     file_type TEXT NOT NULL,
                     file_path TEXT NOT NULL,
                     language TEXT,
+                    languages TEXT,
                     status TEXT NOT NULL,
                     original_text TEXT,
                     transliterated_text TEXT,
@@ -123,6 +125,27 @@ class DocumentStorageService:
                 )
                 """
             )
+
+            # ------------------------------------------------
+            # DATABASE MIGRATION
+            # ------------------------------------------------
+
+            columns = connection.execute(
+                "PRAGMA table_info(documents)"
+            ).fetchall()
+
+            column_names = {
+                column["name"]
+                for column in columns
+            }
+
+            if "languages" not in column_names:
+                connection.execute(
+                    """
+                    ALTER TABLE documents
+                    ADD COLUMN languages TEXT
+                    """
+                )
 
             connection.commit()
 
@@ -139,8 +162,9 @@ class DocumentStorageService:
         user_id,
         file_type,
         language,
-        original_text,
-        transliterated_text,
+        languages=None,
+        original_text=None,
+        transliterated_text=None,
         provider=None,
         provider_type=None,
         confidence=None,
@@ -151,6 +175,13 @@ class DocumentStorageService:
         A UUID-based filename is generated for physical
         storage so the original filename is never used
         as the actual storage filename.
+
+        `languages` contains all languages detected/used
+        in the document.
+
+        Example:
+
+            ["telugu", "hindi", "english"]
         """
 
         if file is None:
@@ -162,10 +193,12 @@ class DocumentStorageService:
             raise ValueError(
                 "File name is required"
             )
+
         if not user_id:
             raise ValueError(
                 "User ID is required"
             )
+
         document_id = str(
             uuid.uuid4()
         )
@@ -191,6 +224,33 @@ class DocumentStorageService:
         ).isoformat()
 
         # ----------------------------------------------------
+        # NORMALIZE LANGUAGES
+        # ----------------------------------------------------
+
+        if languages is None:
+            languages = []
+
+        if isinstance(languages, str):
+            languages = [languages]
+
+        languages = [
+            str(item).strip().lower()
+            for item in languages
+            if str(item).strip()
+        ]
+
+        # Remove duplicates while preserving order.
+        languages = list(
+            dict.fromkeys(languages)
+        )
+
+        # Store list as JSON inside SQLite.
+        languages_json = json.dumps(
+            languages,
+            ensure_ascii=False,
+        )
+
+        # ----------------------------------------------------
         # SAVE PHYSICAL FILE
         # ----------------------------------------------------
 
@@ -198,7 +258,6 @@ class DocumentStorageService:
             file.save(file_path)
 
         except Exception as error:
-            # Do not leave a partially-created file behind.
 
             if os.path.exists(file_path):
                 try:
@@ -227,6 +286,7 @@ class DocumentStorageService:
                     file_type,
                     file_path,
                     language,
+                    languages,
                     status,
                     original_text,
                     transliterated_text,
@@ -235,7 +295,9 @@ class DocumentStorageService:
                     confidence,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
                 """,
                 (
                     document_id,
@@ -245,6 +307,7 @@ class DocumentStorageService:
                     file_type,
                     file_path,
                     language,
+                    languages_json,
                     "Completed",
                     original_text,
                     transliterated_text,
@@ -258,10 +321,8 @@ class DocumentStorageService:
             connection.commit()
 
         except Exception:
-            connection.rollback()
 
-            # Database insertion failed after the physical
-            # file was created. Remove the orphaned file.
+            connection.rollback()
 
             if os.path.exists(file_path):
                 try:
@@ -305,6 +366,7 @@ class DocumentStorageService:
                     file_type,
                     file_path,
                     language,
+                    languages,
                     status,
                     original_text,
                     transliterated_text,
@@ -321,7 +383,25 @@ class DocumentStorageService:
             if row is None:
                 return None
 
-            return dict(row)
+            document = dict(row)
+
+            # Convert JSON string back into a Python list.
+            try:
+                document["languages"] = (
+                    json.loads(
+                        document["languages"]
+                    )
+                    if document["languages"]
+                    else []
+                )
+
+            except (
+                TypeError,
+                json.JSONDecodeError,
+            ):
+                document["languages"] = []
+
+            return document
 
         finally:
             connection.close()
@@ -329,10 +409,6 @@ class DocumentStorageService:
     # ========================================================
     # GET ALL DOCUMENTS
     # ========================================================
-
-    # ========================================================
-# GET ALL DOCUMENTS
-# ========================================================
 
     def get_all_documents(self, user_id):
         connection = self._get_connection()
@@ -345,6 +421,7 @@ class DocumentStorageService:
                     filename,
                     file_type,
                     language,
+                    languages,
                     status,
                     original_text,
                     transliterated_text,
@@ -359,10 +436,32 @@ class DocumentStorageService:
                 (user_id,),
             ).fetchall()
 
-            return [
-                dict(row)
-                for row in rows
-            ]
+            documents = []
+
+            for row in rows:
+
+                document = dict(row)
+
+                try:
+                    document["languages"] = (
+                        json.loads(
+                            document["languages"]
+                        )
+                        if document["languages"]
+                        else []
+                    )
+
+                except (
+                    TypeError,
+                    json.JSONDecodeError,
+                ):
+                    document["languages"] = []
+
+                documents.append(
+                    document
+                )
+
+            return documents
 
         finally:
             connection.close()
@@ -399,10 +498,12 @@ class DocumentStorageService:
         # ----------------------------------------------------
 
         if os.path.exists(file_path):
+
             try:
                 os.remove(file_path)
 
             except OSError as error:
+
                 raise RuntimeError(
                     f"Unable to delete document file: {str(error)}"
                 ) from error
@@ -414,6 +515,7 @@ class DocumentStorageService:
         connection = self._get_connection()
 
         try:
+
             cursor = connection.execute(
                 """
                 DELETE FROM documents
@@ -427,7 +529,9 @@ class DocumentStorageService:
             return cursor.rowcount > 0
 
         except Exception:
+
             connection.rollback()
+
             raise
 
         finally:

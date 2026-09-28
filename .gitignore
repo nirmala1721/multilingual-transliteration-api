@@ -1,78 +1,24 @@
-# ============================================================
-# PYTHON
-# ============================================================
-
-# Virtual environments
 venv/
-venv_test/
 .venv/
-
-# Python cache
 __pycache__/
-*.py[cod]
-
-# Pytest
-.pytest_cache/
-
-# ============================================================
-# ENVIRONMENT VARIABLES
-# ============================================================
-
+*.pyc
 .env
-.env.*
-!.env.example
-
-# ============================================================
-# IDE
-# ============================================================
-
+.pytest_cache/
 .vscode/
 .idea/
-
-# ============================================================
-# FRONTEND
-# ============================================================
-
-frontend/node_modules/
-frontend/dist/
-
-# ============================================================
-# APPLICATION STORAGE
-# ============================================================
-
-# Uploaded documents
-app/storage/documents/
-
-# SQLite database
-app/storage/*.db
-
-# ============================================================
-# DEBUG / GENERATED FILES
-# ============================================================
-
-debug_*.png
-
-# ============================================================
-# TEST ARTIFACTS
-# ============================================================
-
-fake.*
-fake2.*
-large_test.txt
-new_ocr_test.pdf
-xya.xyz
-
-# ============================================================
-# OS GENERATED FILES
-# ============================================================
-
 .DS_Store
-Thumbs.db
-~$*
 
-# Runtime storage
-app/storage/
-
-# Frontend dependencies/build output
 frontend/node_modules/
 frontend/dist/
+bengali_test.txt
+five_language_test.txt
+gujarati_test.txt
+hindi_test.txt
+kannada_test.txt
+malayalam_test.txt
+odia_test.txt
+punjabi_test.txt
+tamil_test.txt
+telugu_test.txt
+test_mixed.txt
+app/storage/

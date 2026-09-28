@@ -107,7 +107,7 @@ class TextTransliteration(Resource):
                 400,
             )
 
-        text = text.strip()
+        text = text.lstrip("\ufeff").strip()
 
         if not text:
             return error_response(
@@ -165,6 +165,16 @@ class TextTransliteration(Resource):
             )
 
         # ========================================================
+        # LANGUAGES
+        # ========================================================
+
+        languages = (
+            result.languages
+            if result.languages
+            else [result.language]
+        )
+
+        # ========================================================
         # RESPONSE
         # ========================================================
 
@@ -172,6 +182,7 @@ class TextTransliteration(Resource):
             data={
                 "original_text": text,
                 "language": result.language,
+                "languages": languages,
                 "transliterated_text": result.text,
                 "provider": result.provider,
                 "provider_type": result.provider_type,
@@ -196,6 +207,14 @@ file_model.add_argument(
         "File to transliterate. "
         "Supported: .txt, .pdf, .docx, .png, .jpg, .jpeg"
     ),
+)
+
+file_model.add_argument(
+    "user_id",
+    type=str,
+    location="form",
+    required=True,
+    help="User ID associated with the uploaded document.",
 )
 
 
@@ -237,7 +256,26 @@ class FileTransliteration(Resource):
             )
 
         file = request.files["file"]
-        user_id = request.form.get("user_id")
+
+        user_id = request.form.get(
+            "user_id"
+        )
+
+        if not user_id:
+
+            return error_response(
+                "User ID is required",
+                400,
+            )
+
+        user_id = user_id.strip()
+
+        if not user_id:
+
+            return error_response(
+                "User ID cannot be empty",
+                400,
+            )
 
         if not file.filename:
 
@@ -253,7 +291,9 @@ class FileTransliteration(Resource):
         try:
 
             file.seek(0, 2)
+
             file_size = file.tell()
+
             file.seek(0)
 
         except Exception as error:
@@ -284,7 +324,9 @@ class FileTransliteration(Resource):
 
         try:
 
-            text = extract_text_from_file(file)
+            text = extract_text_from_file(
+                file
+            )
 
         except ValueError as error:
 
@@ -352,7 +394,9 @@ class FileTransliteration(Resource):
 
         try:
 
-            result = transliterate_text(text)
+            result = transliterate_text(
+                text
+            )
 
         except ValueError as error:
 
@@ -369,6 +413,16 @@ class FileTransliteration(Resource):
             )
 
         # ========================================================
+        # LANGUAGES
+        # ========================================================
+
+        languages = (
+            result.languages
+            if result.languages
+            else [result.language]
+        )
+
+        # ========================================================
         # STORE ORIGINAL FILE
         # ========================================================
 
@@ -376,6 +430,7 @@ class FileTransliteration(Resource):
 
             # Text extraction may have consumed the
             # uploaded file stream. Reset it before saving.
+
             file.seek(0)
 
             file_type = (
@@ -386,18 +441,23 @@ class FileTransliteration(Resource):
                 else "unknown"
             )
 
-            storage_service = DocumentStorageService()
+            storage_service = (
+                DocumentStorageService()
+            )
 
-            document = storage_service.save_document(
-                file=file,
-                user_id=user_id,
-                file_type=file_type,
-                language=result.language,
-                original_text=text,
-                transliterated_text=result.text,
-                provider=result.provider,
-                provider_type=result.provider_type,
-                confidence=result.confidence,
+            document = (
+                storage_service.save_document(
+                    file=file,
+                    user_id=user_id,
+                    file_type=file_type,
+                    language=result.language,
+                    languages=languages,
+                    original_text=text,
+                    transliterated_text=result.text,
+                    provider=result.provider,
+                    provider_type=result.provider_type,
+                    confidence=result.confidence,
+                )
             )
 
         except Exception as error:
@@ -412,17 +472,18 @@ class FileTransliteration(Resource):
         # ========================================================
 
         return success_response(
-            data={
-                "document_id": document["id"],
-                "filename": document["filename"],
-                "original_text": text,
-                "language": result.language,
-                "transliterated_text": result.text,
-                "provider": result.provider,
-                "provider_type": result.provider_type,
-                "confidence": result.confidence,
-                "status": document["status"],
-                "created_at": document["created_at"],
-            },
-            status_code=200,
-        )
+        data={
+            "document_id": document["id"],
+            "filename": document["filename"],
+            "original_text": text,
+            "language": result.language,
+            "languages": document["languages"],
+            "transliterated_text": result.text,
+            "provider": result.provider,
+            "provider_type": result.provider_type,
+            "confidence": result.confidence,
+            "status": document["status"],
+            "created_at": document["created_at"],
+        },
+        status_code=200,
+)
