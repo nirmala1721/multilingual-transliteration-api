@@ -1,8 +1,21 @@
-const API_BASE_URL = "https://multilingual-transliteration-api.onrender.com/api/v1";
-// const API_BASE_URL = "http://127.0.0.1:5000/api/v1";
+// ============================================================
+// API CONFIGURATION
+// ============================================================
+
+// Local backend
+// const API_BASE_URL =
+//   "http://127.0.0.1:5000/api/v1";
+
+// Production backend
+const API_BASE_URL =
+  "https://multilingual-transliteration-api.onrender.com/api/v1";
 
 
 const USER_ID_KEY = "transliteration_user_id";
+
+// ============================================================
+// USER ID
+// ============================================================
 
 function getUserId() {
   let userId = localStorage.getItem(USER_ID_KEY);
@@ -16,11 +29,26 @@ function getUserId() {
 }
 
 // ============================================================
+// DOCUMENT FILE URL
+// ============================================================
+
+export function getDocumentFileUrl(documentId) {
+  if (!documentId) {
+    return "";
+  }
+
+  return `${API_BASE_URL}/documents/${documentId}/file`;
+}
+
+// ============================================================
 // RESPONSE HELPER
 // ============================================================
 
-async function parseResponse(response, fallbackMessage) {
-  let result;
+async function parseResponse(
+  response,
+  fallbackMessage
+) {
+  let result = null;
 
   try {
     result = await response.json();
@@ -40,7 +68,7 @@ async function parseResponse(response, fallbackMessage) {
 }
 
 // ============================================================
-// FETCH HELPER WITH TIMEOUT / CANCELLATION
+// FETCH HELPER WITH TIMEOUT
 // ============================================================
 
 async function fetchWithTimeout(
@@ -61,11 +89,7 @@ async function fetchWithTimeout(
     });
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new Error(
-        "This file is taking too long to process. " +
-          "Please try a smaller file or a file with fewer pages.",
-        { cause: error }
-      );
+      throw error;
     }
 
     throw error;
@@ -86,7 +110,10 @@ export async function transliterateText(
     text,
   };
 
-  if (language && language !== "auto") {
+  if (
+    language &&
+    language !== "auto"
+  ) {
     requestBody.language = language;
   }
 
@@ -99,16 +126,27 @@ export async function transliterateText(
         method: "POST",
 
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         },
 
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(
+          requestBody
+        ),
       }
     );
   } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(
+        "The transliteration request timed out."
+      );
+    }
+
     throw new Error(
       "Unable to connect to the transliteration server.",
-      { cause: error }
+      {
+        cause: error,
+      }
     );
   }
 
@@ -130,10 +168,20 @@ export async function transliterateFile(
   const formData = new FormData();
 
   formData.append("file", file);
-  formData.append("user_id", getUserId());
 
-  if (language && language !== "auto") {
-    formData.append("language", language);
+  formData.append(
+    "user_id",
+    getUserId()
+  );
+
+  if (
+    language &&
+    language !== "auto"
+  ) {
+    formData.append(
+      "language",
+      language
+    );
   }
 
   let response;
@@ -148,13 +196,18 @@ export async function transliterateFile(
       }
     );
   } catch (error) {
-    if (error.name === "AbortError") {
+    if (
+      error.name ===
+      "AbortError"
+    ) {
       throw error;
     }
 
     throw new Error(
       "Unable to connect to the transliteration server.",
-      { cause: error }
+      {
+        cause: error,
+      }
     );
   }
 
@@ -172,13 +225,30 @@ export async function getDocuments() {
   let response;
 
   try {
-    response = await fetch(
-      `${API_BASE_URL}/documents?user_id=${getUserId()}`
+    response = await fetchWithTimeout(
+      `${API_BASE_URL}/documents?user_id=${encodeURIComponent(
+        getUserId()
+      )}`,
+      {
+        method: "GET",
+      },
+      30000
     );
   } catch (error) {
+    if (
+      error.name ===
+      "AbortError"
+    ) {
+      throw new Error(
+        "The document request timed out."
+      );
+    }
+
     throw new Error(
       "Unable to connect to the document server.",
-      { cause: error }
+      {
+        cause: error,
+      }
     );
   }
 
@@ -192,7 +262,9 @@ export async function getDocuments() {
 // GET SINGLE DOCUMENT
 // ============================================================
 
-export async function getDocument(documentId) {
+export async function getDocument(
+  documentId
+) {
   if (!documentId) {
     throw new Error(
       "Document ID is required."
@@ -202,13 +274,30 @@ export async function getDocument(documentId) {
   let response;
 
   try {
-    response = await fetch(
-      `${API_BASE_URL}/documents/${documentId}`
+    response = await fetchWithTimeout(
+      `${API_BASE_URL}/documents/${encodeURIComponent(
+        documentId
+      )}`,
+      {
+        method: "GET",
+      },
+      30000
     );
   } catch (error) {
+    if (
+      error.name ===
+      "AbortError"
+    ) {
+      throw new Error(
+        "The document request timed out."
+      );
+    }
+
     throw new Error(
       "Unable to connect to the document server.",
-      { cause: error }
+      {
+        cause: error,
+      }
     );
   }
 
@@ -222,7 +311,9 @@ export async function getDocument(documentId) {
 // DELETE DOCUMENT
 // ============================================================
 
-export async function deleteDocument(documentId) {
+export async function deleteDocument(
+  documentId
+) {
   if (!documentId) {
     throw new Error(
       "Document ID is required."
@@ -232,16 +323,30 @@ export async function deleteDocument(documentId) {
   let response;
 
   try {
-    response = await fetch(
-      `${API_BASE_URL}/documents/${documentId}`,
+    response = await fetchWithTimeout(
+      `${API_BASE_URL}/documents/${encodeURIComponent(
+        documentId
+      )}`,
       {
         method: "DELETE",
-      }
+      },
+      30000
     );
   } catch (error) {
+    if (
+      error.name ===
+      "AbortError"
+    ) {
+      throw new Error(
+        "The delete request timed out."
+      );
+    }
+
     throw new Error(
       "Unable to connect to the document server.",
-      { cause: error }
+      {
+        cause: error,
+      }
     );
   }
 

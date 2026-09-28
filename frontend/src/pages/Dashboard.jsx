@@ -12,8 +12,13 @@ function Dashboard() {
   const navigate = useNavigate();
 
   const [documents, setDocuments] = useState([]);
+  const [totalDocuments, setTotalDocuments] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // ============================================================
+  // LOAD DASHBOARD DATA
+  // ============================================================
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -22,56 +27,167 @@ function Dashboard() {
 
       const result = await getDocuments();
 
-      setDocuments(result.data.documents || []);
-    } catch (error) {
-      setError(
-        error.message || "Failed to load dashboard"
+      const responseData = result?.data || {};
+
+      const documentList = Array.isArray(
+        responseData.documents
+      )
+        ? responseData.documents
+        : [];
+
+      setDocuments(documentList);
+
+      setTotalDocuments(
+        typeof responseData.count === "number"
+          ? responseData.count
+          : documentList.length
       );
+    } catch (error) {
+      console.error(
+        "Dashboard loading error:",
+        error
+      );
+
+      setError(
+        error?.message ||
+          "Failed to load dashboard"
+      );
+
+      setDocuments([]);
+      setTotalDocuments(0);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // ============================================================
+  // INITIAL LOAD + UPLOAD EVENT
+  // ============================================================
+
   useEffect(() => {
-  const handleDocumentUploaded = () => {
-    loadDashboard();
-  };
+    const handleDocumentUploaded = () => {
+      loadDashboard();
+    };
 
-  window.addEventListener(
-    "documentUploaded",
-    handleDocumentUploaded
-  );
-
-  const timer = setTimeout(() => {
-    loadDashboard();
-  }, 0);
-
-  return () => {
-    clearTimeout(timer);
-
-    window.removeEventListener(
+    window.addEventListener(
       "documentUploaded",
       handleDocumentUploaded
     );
-  };
-}, [loadDashboard]);
+
+    loadDashboard();
+
+    return () => {
+      window.removeEventListener(
+        "documentUploaded",
+        handleDocumentUploaded
+      );
+    };
+  }, [loadDashboard]);
+
+  // ============================================================
+  // COMPLETED DOCUMENTS
+  // ============================================================
 
   const completedDocuments = useMemo(() => {
-    return documents.filter(
-      (document) =>
-        document.status?.toLowerCase() === "completed"
-    ).length;
+    return documents.filter((document) => {
+      const status = String(
+        document?.status || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      return status === "completed";
+    }).length;
   }, [documents]);
+
+  // ============================================================
+  // LANGUAGES USED
+  // ============================================================
+  //
+  // Supports:
+  //
+  // language: "telugu"
+  //
+  // language: "mixed"
+  // languages: ["telugu", "hindi"]
+  //
+  // language: "mixed"
+  // languages: ["telugu", "hindi", "tamil"]
+  //
+  // Duplicates are counted only once.
+  //
+  // "mixed" itself is NOT counted as a language.
+  // ============================================================
 
   const languageCount = useMemo(() => {
-    const languages = documents
-      .map((document) =>
-        document.language?.toLowerCase()
-      )
-      .filter(Boolean);
+    const languageSet = new Set();
 
-    return new Set(languages).size;
+    documents.forEach((document) => {
+      // --------------------------------------------------------
+      // 1. Check languages array
+      // --------------------------------------------------------
+
+      if (
+        Array.isArray(document?.languages) &&
+        document.languages.length > 0
+      ) {
+        document.languages.forEach((language) => {
+          if (!language) {
+            return;
+          }
+
+          const normalizedLanguage = String(language)
+            .trim()
+            .toLowerCase();
+
+          if (
+            normalizedLanguage &&
+            normalizedLanguage !== "mixed"
+          ) {
+            languageSet.add(
+              normalizedLanguage
+            );
+          }
+        });
+      }
+
+      // --------------------------------------------------------
+      // 2. Also check language field
+      // --------------------------------------------------------
+      //
+      // This is intentionally NOT "else".
+      //
+      // We check both fields because a document can contain:
+      //
+      // language: "mixed"
+      // languages: ["telugu", "hindi"]
+      //
+      // or:
+      //
+      // language: "telugu"
+      // languages: []
+      // --------------------------------------------------------
+
+      const language = String(
+        document?.language || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        language &&
+        language !== "mixed"
+      ) {
+        languageSet.add(language);
+      }
+    });
+
+    return languageSet.size;
   }, [documents]);
+
+  // ============================================================
+  // PAGE
+  // ============================================================
 
   return (
     <section className="dashboard-page">
@@ -81,16 +197,20 @@ function Dashboard() {
       ====================================================== */}
 
       <div className="page-heading">
+
         <span className="page-eyebrow">
           Workspace
         </span>
 
-        <h1>Dashboard</h1>
+        <h1>
+          Dashboard
+        </h1>
 
         <p>
           Overview of your transliteration workspace
           and recent documents.
         </p>
+
       </div>
 
       {/* ======================================================
@@ -112,6 +232,7 @@ function Dashboard() {
         {/* TOTAL DOCUMENTS */}
 
         <div className="dashboard-card">
+
           <div>
             <FileText size={20} />
 
@@ -123,13 +244,15 @@ function Dashboard() {
           <strong>
             {loading
               ? "—"
-              : documents.length}
+              : totalDocuments}
           </strong>
+
         </div>
 
         {/* COMPLETED */}
 
         <div className="dashboard-card">
+
           <div>
             <CheckCircle2 size={20} />
 
@@ -143,11 +266,13 @@ function Dashboard() {
               ? "—"
               : completedDocuments}
           </strong>
+
         </div>
 
         {/* LANGUAGES */}
 
         <div className="dashboard-card">
+
           <div>
             <Languages size={20} />
 
@@ -161,6 +286,7 @@ function Dashboard() {
               ? "—"
               : languageCount}
           </strong>
+
         </div>
 
       </div>
@@ -172,7 +298,9 @@ function Dashboard() {
       <div className="dashboard-section">
 
         <div className="dashboard-section-header">
+
           <div>
+
             <h2>
               Quick Actions
             </h2>
@@ -181,7 +309,9 @@ function Dashboard() {
               Start a new task or view your previous
               documents.
             </p>
+
           </div>
+
         </div>
 
         <div className="dashboard-quick-actions">
@@ -195,11 +325,13 @@ function Dashboard() {
               navigate("/transliterate")
             }
           >
+
             <div className="dashboard-quick-action-icon">
               <FileText size={20} />
             </div>
 
             <div>
+
               <h3>
                 Start Transliteration
               </h3>
@@ -207,7 +339,9 @@ function Dashboard() {
               <p>
                 Upload a file or enter text to begin.
               </p>
+
             </div>
+
           </button>
 
           {/* VIEW HISTORY */}
@@ -219,11 +353,13 @@ function Dashboard() {
               navigate("/history")
             }
           >
+
             <div className="dashboard-quick-action-icon">
               <Languages size={20} />
             </div>
 
             <div>
+
               <h3>
                 View History
               </h3>
@@ -232,7 +368,9 @@ function Dashboard() {
                 Browse and reopen your previous
                 documents.
               </p>
+
             </div>
+
           </button>
 
         </div>

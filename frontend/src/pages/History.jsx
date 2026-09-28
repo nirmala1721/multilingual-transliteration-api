@@ -50,10 +50,17 @@ function History() {
 
       const result = await getDocuments();
 
-      setDocuments(result.data.documents || []);
+      const documentList = Array.isArray(
+        result?.data?.documents
+      )
+        ? result.data.documents
+        : [];
+
+      setDocuments(documentList);
     } catch (error) {
       setError(
-        error.message || "Failed to load history"
+        error?.message ||
+          "Failed to load history"
       );
     } finally {
       setLoading(false);
@@ -65,28 +72,25 @@ function History() {
   // ============================================================
 
   useEffect(() => {
-  const handleDocumentUploaded = () => {
-    loadHistory();
-  };
+    const handleDocumentUploaded = () => {
+      loadHistory();
+    };
 
-  const timer = setTimeout(() => {
-    loadHistory();
-  }, 0);
-
-  window.addEventListener(
-    "documentUploaded",
-    handleDocumentUploaded
-  );
-
-  return () => {
-    clearTimeout(timer);
-
-    window.removeEventListener(
+    window.addEventListener(
       "documentUploaded",
       handleDocumentUploaded
     );
-  };
-}, [loadHistory]);
+
+    loadHistory();
+
+    return () => {
+      window.removeEventListener(
+        "documentUploaded",
+        handleDocumentUploaded
+      );
+    };
+  }, [loadHistory]);
+
   // ============================================================
   // FILE TYPE OPTIONS
   // ============================================================
@@ -96,7 +100,9 @@ function History() {
       ...new Set(
         documents
           .map((document) =>
-            document.file_type?.toLowerCase()
+            document?.file_type
+              ?.trim()
+              .toLowerCase()
           )
           .filter(Boolean)
       ),
@@ -106,27 +112,136 @@ function History() {
   // ============================================================
   // LANGUAGE OPTIONS
   // ============================================================
+  //
+  // Supports both:
+  //
+  // document.language
+  //
+  // document.languages[]
+  //
+  // "mixed" is not shown as a language.
+  // ============================================================
 
   const languages = useMemo(() => {
-    return [
-      ...new Set(
-        documents
-          .map((document) =>
-            document.language?.toLowerCase()
-          )
-          .filter(Boolean)
-      ),
-    ].sort();
+    const languageSet = new Set();
+
+    documents.forEach((document) => {
+
+      // languages array
+      if (
+        Array.isArray(document?.languages)
+      ) {
+        document.languages.forEach(
+          (language) => {
+            if (!language) {
+              return;
+            }
+
+            const normalizedLanguage =
+              String(language)
+                .trim()
+                .toLowerCase();
+
+            if (
+              normalizedLanguage &&
+              normalizedLanguage !== "mixed"
+            ) {
+              languageSet.add(
+                normalizedLanguage
+              );
+            }
+          }
+        );
+      }
+
+      // language field
+      const language = String(
+        document?.language || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        language &&
+        language !== "mixed"
+      ) {
+        languageSet.add(language);
+      }
+    });
+
+    return [...languageSet].sort();
   }, [documents]);
+
+  // ============================================================
+  // GET DOCUMENT LANGUAGES
+  // ============================================================
+
+  const getDocumentLanguages = useCallback(
+    (document) => {
+      const languageSet = new Set();
+
+      // languages[]
+      if (
+        Array.isArray(document?.languages)
+      ) {
+        document.languages.forEach(
+          (language) => {
+            if (!language) {
+              return;
+            }
+
+            const normalizedLanguage =
+              String(language)
+                .trim()
+                .toLowerCase();
+
+            if (
+              normalizedLanguage &&
+              normalizedLanguage !== "mixed"
+            ) {
+              languageSet.add(
+                normalizedLanguage
+              );
+            }
+          }
+        );
+      }
+
+      // language
+      const language = String(
+        document?.language || ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (
+        language &&
+        language !== "mixed"
+      ) {
+        languageSet.add(language);
+      }
+
+      return [...languageSet];
+    },
+    []
+  );
 
   // ============================================================
   // FILTER HISTORY
   // ============================================================
 
   const filteredDocuments = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+    const search =
+      searchTerm.trim().toLowerCase();
 
     return documents.filter((document) => {
+
+      const documentLanguages =
+        getDocumentLanguages(document);
+
+      const languageText =
+        documentLanguages.join(" ");
+
       const matchesSearch =
         !search ||
         document.filename
@@ -135,6 +250,7 @@ function History() {
         document.file_type
           ?.toLowerCase()
           .includes(search) ||
+        languageText.includes(search) ||
         document.language
           ?.toLowerCase()
           .includes(search) ||
@@ -144,13 +260,16 @@ function History() {
 
       const matchesFileType =
         fileTypeFilter === "all" ||
-        document.file_type?.toLowerCase() ===
+        document.file_type
+          ?.trim()
+          .toLowerCase() ===
           fileTypeFilter;
 
       const matchesLanguage =
         languageFilter === "all" ||
-        document.language?.toLowerCase() ===
-          languageFilter;
+        documentLanguages.includes(
+          languageFilter
+        );
 
       return (
         matchesSearch &&
@@ -163,6 +282,7 @@ function History() {
     searchTerm,
     fileTypeFilter,
     languageFilter,
+    getDocumentLanguages,
   ]);
 
   // ============================================================
@@ -221,7 +341,8 @@ function History() {
       setDocumentToDelete(null);
     } catch (error) {
       setError(
-        error.message || "Failed to delete document"
+        error?.message ||
+          "Failed to delete document"
       );
     } finally {
       setDeletingDocumentId(null);
@@ -271,6 +392,23 @@ function History() {
     });
   };
 
+  // ============================================================
+  // DISPLAY LANGUAGE
+  // ============================================================
+
+  const formatLanguage = (language) => {
+    if (!language) {
+      return "Unknown";
+    }
+
+    return language.charAt(0).toUpperCase() +
+      language.slice(1);
+  };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <section className="history-page">
 
@@ -279,18 +417,24 @@ function History() {
       ====================================================== */}
 
       <div className="history-heading">
+
         <div>
+
           <span className="page-eyebrow">
             Workspace
           </span>
 
-          <h1>History</h1>
+          <h1>
+            History
+          </h1>
 
           <p>
             View and reopen your previously uploaded
             documents.
           </p>
+
         </div>
+
       </div>
 
       {/* ======================================================
@@ -302,6 +446,7 @@ function History() {
         {/* SEARCH */}
 
         <div className="history-search">
+
           <Search size={17} />
 
           <input
@@ -309,20 +454,27 @@ function History() {
             placeholder="Search files..."
             value={searchTerm}
             onChange={(event) =>
-              setSearchTerm(event.target.value)
+              setSearchTerm(
+                event.target.value
+              )
             }
           />
+
         </div>
 
         {/* FILE TYPE FILTER */}
 
         <div className="history-filter">
+
           <select
             value={fileTypeFilter}
             onChange={(event) =>
-              setFileTypeFilter(event.target.value)
+              setFileTypeFilter(
+                event.target.value
+              )
             }
           >
+
             <option value="all">
               All file types
             </option>
@@ -335,18 +487,24 @@ function History() {
                 {type.toUpperCase()}
               </option>
             ))}
+
           </select>
+
         </div>
 
         {/* LANGUAGE FILTER */}
 
         <div className="history-filter">
+
           <select
             value={languageFilter}
             onChange={(event) =>
-              setLanguageFilter(event.target.value)
+              setLanguageFilter(
+                event.target.value
+              )
             }
           >
+
             <option value="all">
               All languages
             </option>
@@ -356,16 +514,18 @@ function History() {
                 key={language}
                 value={language}
               >
-                {language.charAt(0).toUpperCase() +
-                  language.slice(1)}
+                {formatLanguage(language)}
               </option>
             ))}
+
           </select>
+
         </div>
 
         {/* SUMMARY */}
 
         <div className="history-summary">
+
           <Languages size={16} />
 
           <span>
@@ -374,6 +534,7 @@ function History() {
               ? "file"
               : "files"}
           </span>
+
         </div>
 
       </div>
@@ -399,7 +560,9 @@ function History() {
             <FileText size={22} />
           </div>
 
-          <h3>Loading history...</h3>
+          <h3>
+            Loading history...
+          </h3>
 
           <p>
             Retrieving your previously uploaded files.
@@ -417,12 +580,20 @@ function History() {
           <div className="history-list">
 
             {filteredDocuments.map((document) => {
-              const FileIcon = getFileIcon(
-                document.file_type
-              );
+
+              const FileIcon =
+                getFileIcon(
+                  document.file_type
+                );
 
               const isDeleting =
-                deletingDocumentId === document.id;
+                deletingDocumentId ===
+                document.id;
+
+              const documentLanguages =
+                getDocumentLanguages(
+                  document
+                );
 
               return (
                 <article
@@ -455,8 +626,13 @@ function History() {
                     <div className="history-card-meta">
 
                       <span>
-                        {document.language ||
-                          "Unknown"}
+                        {documentLanguages.length > 0
+                          ? documentLanguages
+                              .map(
+                                formatLanguage
+                              )
+                              .join(", ")
+                          : "Unknown"}
                       </span>
 
                       <span className="history-meta-separator">
@@ -464,8 +640,11 @@ function History() {
                       </span>
 
                       <span className="history-status">
+
                         <span className="status-dot" />
+
                         {document.status}
+
                       </span>
 
                     </div>
@@ -502,8 +681,11 @@ function History() {
                       }
                       disabled={isDeleting}
                     >
+
                       <ExternalLink size={15} />
+
                       Open
+
                     </button>
 
                     {/* DELETE */}
@@ -524,6 +706,7 @@ function History() {
                           : "Delete document"
                       }
                     >
+
                       <Trash2 size={15} />
 
                       <span>
@@ -531,6 +714,7 @@ function History() {
                           ? "Deleting..."
                           : "Delete"}
                       </span>
+
                     </button>
 
                   </div>
@@ -579,12 +763,15 @@ function History() {
           className="delete-modal-overlay"
           role="presentation"
           onMouseDown={(event) => {
+
             if (
-              event.target === event.currentTarget &&
+              event.target ===
+                event.currentTarget &&
               deletingDocumentId === null
             ) {
               handleCancelDelete();
             }
+
           }}
         >
 
@@ -610,7 +797,9 @@ function History() {
                 }
                 aria-label="Close"
               >
+
                 <X size={18} />
+
               </button>
 
             </div>
